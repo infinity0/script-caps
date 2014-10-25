@@ -1,0 +1,120 @@
+			Setuid Shell Scripts
+			--------------------
+			how to get them safe
+
+			  Maarten Litmaath
+			  (maart@cs.vu.nl)
+
+
+Consider a setuid root shell script written in Bourne shell command language
+and called `/bin/powerful'.
+The first line of the script will be (without indentation!):
+
+	#!/bin/sh
+
+If it doesn't begin with such a line, it's no use to chmod it to 6755 or
+whatever, because in that case it's just a shell script of the `old' kind:
+the Bourne shell receives an exec format error when trying to execute it, and
+decides it must be a shell script, so it forks a subshell with the script name
+as argument, to indicate from which file the commands are to be read.
+Shell scripts of the `new' kind are treated as follows: the kernel discovers
+the magic number `#!' and tries to execute the command interpreter pointed out,
+which may be followed in the script by 1 argument.
+Before the exec of the interpreter the uid and gid fields somewhere in the user
+structure of the process are filled in.
+Setuid script scheme (kernel manipulations faked by C routines):
+
+	execl("/bin/powerful", "powerful", (char *) 0);
+
+	  |
+	  V
+
+	setuid(0);
+	setgid(0);      /* possibly */
+	execl("/bin/sh", "sh", "/bin/powerful", (char *) 0);
+
+Now, what if the name of the very shell script were e.g. "-i"? Wouldn't that
+give a nice exec?
+
+	execl("/bin/sh", "sh", "-i", (char *) 0);
+
+So link the script to a file named "-i", and voila!
+Yes, one needs write permission somewhere on the same device, if one's
+operating system doesn't support symbolic links.
+
+What about the csh command interpreter? Well, 4.2BSD provides us with a csh
+which has a NEW option: "-b"! Its goal is to avoid just the thing described
+above: the mnemonic for `b' is `break'; this option prevents following
+arguments of an exec of /bin/csh from being interpreted as options...
+The csh refuses to run a setuid shell script unless the option is present...
+Scheme:
+	#!/bin/csh -b
+	...
+
+	execl("-i", "unimportant", (char *) 0);
+
+	  |
+	  V
+
+	setuid(0);
+	setgid(0);
+	execl("/bin/csh", "csh", "-b", "-i", (char *) 0);
+
+And indeed the contents of the file "-i" are executed!
+However, there's still another bug hidden, albeit not for long!
+What if I could `get between' the setuid()/setgid() and the open() of the
+command file by the command interpreter?
+In that case I could unlink() my link to the setuid shell script, and quickly
+link() some other shell script into its place, couldn't I?
+Right.
+Yet another source of trouble for /bin/sh setuid scripts is the reputed IFS
+shell variable. Of course there's also the PATH variable, which might cause
+problems. However, one can circumvent these 2 jokers easily.
+A solution to the link()/unlink() problems would be the specification of the
+full path of the script in the script itself:
+
+	#!/bin/sh /etc/setuid_script
+	shift		# remove the `extra' argument
+	...
+
+Some objections:
+1)
+	currently the total length of shell + argument mustn't exceed 32 chars
+	(easily fixed);
+2)
+	4.[23]BSD csh is expecting a `-b' flag as the first argument, instead
+	of the full path (easily fixed);
+3)
+	the interpreter gets an extra argument;
+4)
+	the difficulty of maintaining setuid shell scripts increases - if one
+	moves a script, one shouldn't forget to edit it... - editing in turn
+	could turn off the setuid bits, so one shouldn't forget to chmod(1)
+	the file `back'... - conceptually the solution above isn't `elegant'.
+
+How does indir(1) tackle the problems? The script to be executed will look
+like:
+	#!/bin/indir -u
+	#?/bin/sh /etc/setuid_script
+	...
+
+Indir(1) will try to open the script and read the `#?' line indicating the
+real interpreter and a safe (absolute) pathname of the script. But remember:
+the link to the script might have been quickly replaced with a link to another
+script, i.e. how can we trust this `#?' line?
+Answer: if and only if the file we're reading from is SETUID (setgid) to the
+EFFECTIVE uid (gid) of the process, we know we're executing the original
+script (to be 100% correct: the original link might have been replaced with a
+link to ANOTHER setuid script of the same owner -> merely a waste of time).
+To reliably check the condition stated above, we use fstat(2) on the file
+descriptor we're reading from. Can you figure out why stat(2) would be
+insecure?
+To deal with IFS, PATH and other environment problems, indir(1) resets the
+environment to a simple default:
+
+	PATH=/bin:/usr/bin:/usr/ucb
+
+When you need e.g. $HOME, you should get it from /etc/passwd instead of
+trusting what the environment says. Of course with indir(1) problem 4 remains.
+
+				--------

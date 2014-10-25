@@ -1,0 +1,144 @@
+#!/bin/sh
+: ${PATH_OF_INDIR?} ${TEST_DIRECTORY?}
+myname=ok.01
+cat > $myname << EOF
+#!$PATH_OF_INDIR -u
+#?/bin/csh -bf $TEST_DIRECTORY/$myname -v
+whoami
+printenv
+echo args:
+foreach i (\$*)
+	echo '	'\$i
+end
+EOF
+chmod 4755 $myname
+####################
+myname=ok.02
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+
+#comment
+#? /bin/sh \\
+#? $TEST_DIRECTORY/$myname x y \\
+#? z
+
+whoami
+printenv
+echo args:
+for i
+do
+	echo '	'\$i
+done
+EOF
+chmod 755 $myname
+####################
+myname=ok.03
+cat > $myname << EOF
+#!$PATH_OF_INDIR -g
+   #? ~root/bin/echo ~ ~/foo ~bin/bar ~/bin/baz
+
+this_will_not_get_executed
+EOF
+chmod 2755 $myname
+####################
+myname=ok.04
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+#?sed -n -f %
+/uu/p
+EOF
+chmod 755 $myname
+####################
+myname=ok.05
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+#?sed -n -f \\
+#? \\
+#? % \\
+#?
+/uu/p
+EOF
+chmod 755 $myname
+####################
+myname=wrong.01
+cat > $myname << EOF
+#!$PATH_OF_INDIR
+#?/bin/echo you_should_not_see_this
+EOF
+chmod 755 $myname
+####################
+myname=wrong.02
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+#?/bin/echo you_should_not_see_this \\
+EOF
+chmod 755 $myname
+####################
+myname=wrong.03
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+hello
+#?/bin/echo you_should_not_see_this
+EOF
+chmod 755 $myname
+####################
+myname=wrong.04
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+#?/bin/echo you_should_not_see_this \\
+#comment
+#? %
+EOF
+chmod 755 $myname
+####################
+myname=wrong.05
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+#hello
+#?/bin/echo you_should_not_see_this ~nonexistent/bin/bletch
+EOF
+chmod 755 $myname
+####################
+myname=wrong.06
+cat > $myname << EOF
+#!$PATH_OF_INDIR -u
+#?/ you_should_not_see_this
+EOF
+chmod 4755 $myname
+####################
+myname=wrong.07
+cat > $myname << EOF
+#!$PATH_OF_INDIR -u
+#?/bin/echo you_should_not_see_this %
+EOF
+chmod 755 $myname
+####################
+myname=wrong.08
+cat > $myname << EOF
+#!$PATH_OF_INDIR -g
+#?../bin/echo you_should_not_see_this
+EOF
+chmod 755 $myname
+####################
+myname=wrong.09
+cat > $myname << EOF
+#!$PATH_OF_INDIR -g
+#?/bin/echo you_should_not_see_this
+EOF
+chmod 4755 $myname
+####################
+myname=wrong.10
+cat > $myname << EOF
+#!$PATH_OF_INDIR -u
+#?/bin/echo you_should_not_see_this
+EOF
+chmod 2755 $myname
+####################
+myname=wrong.11
+cat > $myname << EOF
+#!$PATH_OF_INDIR -n
+#?/bin/echo you_should_not_see_this
+EOF
+chmod 2755 $myname
+####################
+> tests_made

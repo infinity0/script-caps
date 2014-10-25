@@ -1,0 +1,127 @@
+.\" maart@cs.vu.nl - Maarten Litmaath Wed Nov  1 07:16:05 MET 1989
+.\" uses -man
+.TH INDIR 1 "Nov 01, 1989"
+.UC 4
+.SH NAME
+.B indir
+\- run (setuid/setgid) (shell) scripts indirectly
+.SH SYNOPSIS
+.B "#!/bin/indir \-ugbn"
+.br
+.B #?...
+.br
+.SH DESCRIPTION
+.I Indir
+is not executed from a shell normally. Instead it can be used
+as the interpreter for shell scripts that:
+.PP
+.RS
+1) need to be run \fIsetuid\fR (\fIsetgid\fR) to someone else, or
+.PP
+2) fail to meet the constraints for a `\fB#!\fR' line (see \fIexecve\fR(2)).
+.RE
+.PP
+.I Indir
+is invoked by making the first line of the script
+.PP
+.RS
+.B "#!/bin/indir \-ugbn"
+.RE
+.PP
+rather than the usual
+.PP
+.RS
+.B #!/bin/sh
+.RE
+.PP
+Exactly 1 of the options must be specified (see below).
+.I Indir
+tries to open the script for reading. If successful it discards the first
+line (containing `\fB#!/bin/indir \-ugbn\fR') and tries to read a line
+formatted as follows:
+.PP
+.RS
+.ft B
+#?absolute\-path\-of\-interpreter arguments
+.RE
+.PP
+Whitespace around the `\fB#?\fR' \fImagic number\fR is discarded.
+The interpreter as well as the arguments are subject to
+the `\fItilde convention\fR': a leading string `\fI~user\fR' is expanded to
+the home directory of `\fIuser\fR', where `\fIuser\fR' is the longest
+string of \fIlogin-name characters\fR immediately following the `~'.
+If this string equals the null string, the login name of the REAL uid
+is used.  Currently \fIlogin-name characters\fR are defined to include every
+character except the following: `/', space, horizontal tab, newline and NUL.
+.PP
+Furthermore an argument consisting of a single `%' is expanded to the name
+of the script, if and only if the `\-\fIn\fR' option has been specified, else
+the expansion is inhibited (see below).
+.PP
+The `\-\fIn\fR' option turns off security checking: it must be used only for
+scripts that are not setuid or setgid. For scripts that are only setuid the
+`\-\fIu\fR' option must be used. The `\-\fIg\fR' option is for scripts that
+are only setgid. Finally the `\-\fIb\fR' option is for scripts that are both
+setuid and setgid.  Examples:
+.PP
+.RS
+.ft B
+#!/bin/indir \-u
+.br
+#?/bin/csh \-bf /usr/etc/setuid_script \-v
+.sp
+#!/bin/indir \-g
+.br
+#?~my_name/bin/prog \-f ~my_name/lib/setgid_script
+.sp
+#!/bin/indir \-n
+.br
+#?sed \-n \-f %
+.RE
+.PP
+A `\fB#?\fR' line is limited to 256 characters. However,
+if the line ends in a backslash (`\fB\\\fR'), the next line is assumed to
+contain further arguments after a mandatory leading `\fB#?\fR', and so on.
+There is a system-imposed limit on the total number of characters present
+in the argument list.
+.PP
+To avoid `linking tricks' through which uncontrolled privileges of the
+owner of the file could be acquired, 3 measures have been taken for setuid
+(setgid) scripts:
+.RS
+.PP
+1) the script must contain its own safe invocation, that is the
+`\fB#?\fR' line; `%' arguments will cause \fIindir\fR to abort;
+.PP
+2) the \fIenvironment\fR is reset to a simple default:
+.PP
+.RS
+.B PATH=/bin:/usr/bin:/usr/ucb
+.RE
+.PP
+3) before the final \fIexecve\fR(2)
+.I indir
+checks if the owner and mode of the script are still what they are supposed
+to be (using \fIfstat\fR(2)); if there is a discrepancy,
+.I indir
+will abort with an error message.
+.RE
+.PP
+.I Indir
+will only exec a pathname beginning with a `\fB/\fR', unless the `\-\fIn\fR'
+option was specified. In the latter case the user's PATH will be searched
+(if necessary) to locate the interpreter (see \fIexecvp\fR(3)). Of course
+.I indir
+can be `fooled' by supplying dubious arguments to the interpreter,
+like \fIrelative pathnames\fR. Furthermore it is a mistake to let any of
+the directory components of an ultimate path be writable by others.
+In our first example `/', `/\fIbin\fR', `/\fIusr\fR' and `/\fIusr/etc\fR'
+should not be writable for ordinary users.
+.SH AUTHOR
+Maarten Litmaath @ VU Informatika Amsterdam (maart@cs.vu.nl)
+.SH "SEE ALSO"
+.B "sh(1), csh(1)"
+.SH BUGS
+The maintenance of setuid (setgid) scripts is a bit annoying: if a script is
+moved, one must not forget to change the path mentioned in the script.
+Possibly the editing causes a setuid bit to get turned off.

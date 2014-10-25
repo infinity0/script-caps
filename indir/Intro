@@ -1,0 +1,60 @@
+			Why use indir(1)?
+			-----------------
+
+Suppose you want everyone to be able to remove some lockfile, but you don't
+want its directory to be world-writable.  Isn't it ridiculous you'd have to
+write a setuid C program to do the equivalent of the following shell script?
+
+	#!/bin/sh
+	/bin/rm /some/directory/lockfile
+
+The problem: making this shell script setuid creates a security hole (see
+the file `setuid.txt').  The solution: indir(1).  Using this program the
+script would be setuid and look like this:
+
+	#!/bin/indir -u
+	#?/bin/sh /safe/path/to/this/script
+	/bin/rm /some/directory/lockfile
+
+As the only command in the script is `rm', you might think the script could
+look like this too:
+
+	#!/bin/indir -u
+	#?/bin/rm /some/directory/lockfile
+
+However, this is WRONG, because if the script is invoked with arguments,
+those will also be arguments to `rm':
+
+	remove_lockfile foo bar
+
+becomes
+
+	/bin/rm /some/directory/lockfile foo bar
+
+clearly not what was intended.
+Indir(1) can also be used for non-setuid scripts, to overcome the constraints
+on a `#!' line (currently max. 32 characters, max. 1 (option) argument and the
+`interpreter' must be a real binary):
+
+	#!/bin/indir -n
+	#?sed -n -f %
+	/uu/p
+
+If invoked with the `-n' option, indir(1) will substitute the name of the
+script for every `%' argument on the `#?' line.  Furthermore the user's
+PATH will be searched (if necessary) to find the program to be executed.
+Even in setuid scripts every `#?' argument is subject to the `~' convention:
+a leading string `~user' will be expanded to the home directory of `user'.
+
+Some points of interest and advantages over other schemes:
+- one is not bound to the 32-characters-1-option limit
+- the `interpreter' needn't be a real binary (another `#!' constraint)
+- `%' substitution for normal scripts, `~' convention for all scripts
+- only 1, public program needed, instead of each user having his own setuid
+  `server'
+- no database of valid scripts (`services') needed
+- one can make a private link to the script, with a prefered name, and things
+  still work right:
+
+	$ ln -s /etc/setuid_script my_name
+	$ my_name

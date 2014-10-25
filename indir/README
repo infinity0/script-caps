@@ -1,0 +1,5 @@
+`Intro' describes why one would use indir(1), `setuid.txt' is a general
+text about setuid shell scripts.
+To make indir, check if the Makefile is suited for your environment.
+The `exec_test' script will find out if your operating system has `#!'
+magic numbers enabled.  To do some tests, issue the command `make test'.

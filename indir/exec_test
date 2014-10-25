@@ -1,0 +1,21 @@
+#!/bin/sh
+
+cat > try << EOF
+#!/bin/test -f
+EOF
+
+chmod 100 try
+
+./try 2> /dev/null
+status=$?
+/bin/rm -f try
+
+case $status in
+0)
+	> exec_ok
+	exit 0
+esac
+
+echo "Sorry, your system doesn't seem to"
+echo "recognize the #! magic number.  Abort."
+exit 1

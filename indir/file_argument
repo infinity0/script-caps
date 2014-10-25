@@ -1,0 +1,12 @@
+root:0sW84d7bh.QOc:0:1:Operator:/:/bin/csh
+nobody:*:-2:-2::/:
+daemon:*:1:1::/:
+sys:*:2:2::/:/bin/csh
+bin:*:3:3::/bin:
+uucp:*:4:4::/var/spool/uucppublic:
+news:*:6:6::/var/spool/news:/bin/csh
+ingres:*:7:7::/usr/ingres:/bin/csh
+audit:*:9:9::/etc/security/audit:/bin/csh
+sync::1:1::/:/bin/sync
+sysdiag:LTmKcPBITIe/M:0:1:System Diagnostic:/usr/diag/sysdiag:/usr/diag/sysdiag/sysdiag
++:

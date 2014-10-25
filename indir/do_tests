@@ -1,0 +1,15 @@
+#!/bin/sh
+for i in wrong.* ok.*
+do
+	echo '' >&2
+	echo "$ ls -l $i" >&2
+	ls -l $i >&2
+	echo "$ cat $i" >&2
+	cat $i >&2
+	echo $
+	echo -n "-- hit return to run $i: " >&2
+	read x
+	$i file_argument
+	echo -n "-- hit return to continue: " >&2
+	read x
+done
