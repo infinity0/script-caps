@@ -31,7 +31,7 @@ static const char* cap_interpreter = SCRIPT_CAP_INTERPRETER;
  * It should ignore environment variables, and anything else the user may do
  * to gain newcaps on arbitrary code. E.g. python should be run with -Es.
  */
-static const char* const script_run[3] = { SCRIPT_CAP_SCRIPT };
+static const char* const script_run[3] = { SCRIPT_CAP_RUN };
 
 // see http://unix.stackexchange.com/questions/128394/passing-capabilities-through-exec
 int main(int argc, char **argv) {

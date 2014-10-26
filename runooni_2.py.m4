@@ -17,26 +17,30 @@ path injections). Several options are:
 """
 import os
 
+CAP_NEEDED = SCRIPT_CAP_NEEDED.split(",")
+
 if os.geteuid() == 0:
 	import prctl
 
-	#print os.getresuid()
-
 	prctl.securebits.keep_caps = True
-	prctl.cap_permitted.net_admin = True
-	prctl.cap_permitted.net_raw = True
+	for cap in CAP_NEEDED:
+		setattr(prctl.cap_permitted, cap, True)
 
 	os.setgid(os.getgid())
 	os.setuid(os.getuid())
 
-	#print os.getresuid()
+	got_root = False
+	try:
+		os.setuid(0)
+		got_root = True
+	except OSError:
+		pass
+	if got_root:
+		raise ValueError("regained root after dropping it??")
 
-	prctl.cap_effective.net_admin = True
-	prctl.cap_effective.net_raw = True
+	for cap in CAP_NEEDED:
+		setattr(prctl.cap_effective, cap, True)
 
-#import socket
-#socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-#import sys
-#print sys.path
+SCRIPT_CAP_TEST
 
-execfile("/usr/bin/ooniprobe", {})
+execfile(SCRIPT_CAP_SCRIPT, {})

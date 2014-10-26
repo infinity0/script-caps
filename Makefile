@@ -1,6 +1,8 @@
 SCRIPT_CAP_NEEDED ?= cap_net_admin,cap_net_raw
 SCRIPT_CAP_INTERPRETER ?= "$(shell realpath ./python)"
-SCRIPT_CAP_SCRIPT ?= "python", "-Es", "/usr/bin/ooniprobe"
+SCRIPT_CAP_SCRIPT ?= "/usr/bin/ooniprobe"
+SCRIPT_CAP_RUN ?= "python", "-Es", $(SCRIPT_CAP_SCRIPT)
+SCRIPT_CAP_TEST ?= import socket; s=socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW); s.close(); del s;
 
 PYTHON := python
 PYINCPATH := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_python_inc())")
@@ -8,6 +10,7 @@ PYLIBPATH := $(shell $(PYTHON) -c "from distutils import sysconfig; print(syscon
 PYLIB := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_config_var('LIBRARY')[3:-2])")
 
 SCRIPT_CAP_NEEDED_MACRO := $(shell echo "$(SCRIPT_CAP_NEEDED)" | tr '[a-z]' '[A-Z]')
+SCRIPT_CAP_NEEDED_PY := "$(subst cap_,,$(SCRIPT_CAP_NEEDED))"
 
 # Unfortunately cython --embed ignores the arguments in the shebang line
 # So we need to patch the generated code ourselves.
@@ -25,7 +28,7 @@ test_pre:
 	  && { echo "Ooni not patched: Tor bug #13497"; exit 1; } || true
 
 test_1: runooni_1
-	@if ./python -c "import socket; socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)"; then \
+	@if ./python -c "$(SCRIPT_CAP_TEST)"; then \
 		echo "test failed! ./python is not supposed to be able to open raw sockets"; \
 	else \
 		echo "test passed! ./python succesfully failed to open a raw socket"; \
@@ -33,7 +36,6 @@ test_1: runooni_1
 	cd test && PYTHONPATH=. "../$<" --version
 
 test_2: runooni_2
-	@echo "test_2: TODO: capabilities tests"
 	cd test && PYTHONPATH=. "../$<" --version
 
 run_%: runooni_%
@@ -43,7 +45,7 @@ runooni_1: runooni.c python Makefile
 	$(CC) "$<" -Wall -std=c11 -l cap -o "$@" $(CFLAGS) \
 	  -DSCRIPT_CAP_NEEDED='$(SCRIPT_CAP_NEEDED_MACRO)' \
 	  -DSCRIPT_CAP_INTERPRETER='$(SCRIPT_CAP_INTERPRETER)' \
-	  -DSCRIPT_CAP_SCRIPT='$(SCRIPT_CAP_SCRIPT)'
+	  -DSCRIPT_CAP_RUN='$(SCRIPT_CAP_RUN)'
 	sudo setcap $(SCRIPT_CAP_NEEDED)+p "$@"
 
 python: $(shell which $(PYTHON)) Makefile
@@ -55,14 +57,20 @@ runooni_2: runooni_2.c Makefile
 	sudo chown root:root "$@"
 	sudo chmod 4755 "$@"
 
-runooni_2.c: runooni.py Makefile
+runooni_2.c: runooni_2.py Makefile
 	cython "$<" --embed=CYTHON_MAIN_SENTINEL -Werror -Wextra -o "$@"
 	sed -i \
 	  -e 's/\(.*CYTHON_MAIN_SENTINEL.*{\)/\1 $(CYTHON_PRE_MAIN)/g' \
 	  -e '/CYTHON_MAIN_SENTINEL[^{]*$$/,/{/s/{/{ $(CYTHON_PRE_MAIN)/g' \
 	  -e 's/CYTHON_MAIN_SENTINEL/main/g' "$@"
 
+runooni_2.py: runooni_2.py.m4 Makefile
+	m4 < "$<" > "$@" \
+	  -DSCRIPT_CAP_NEEDED='$(SCRIPT_CAP_NEEDED_PY)' \
+	  -DSCRIPT_CAP_SCRIPT='$(SCRIPT_CAP_SCRIPT)' \
+	  -DSCRIPT_CAP_TEST='$(SCRIPT_CAP_TEST)'
+
 clean:
-	rm -f python runooni_1 runooni_2 runooni_2.c
+	rm -f python runooni_1 runooni_2 runooni_2.c runooni_2.py
 
 .PHONY: clean all test test_% run_%
