@@ -24,16 +24,17 @@ test_pre:
 	grep -q "os.getuid() != 0" "$$(python -c "import ooni.utils; print ooni.utils.__file__")" \
 	  && { echo "Ooni not patched: Tor bug #13497"; exit 1; } || true
 
-test_1: python
+test_1: runooni_1
 	@if ./python -c "import socket; socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)"; then \
 		echo "test failed! ./python is not supposed to be able to open raw sockets"; \
 	else \
 		echo "test passed! ./python succesfully failed to open a raw socket"; \
 	fi
-	@echo "now run 'make run' to run complete.deck using the wrapper"
+	cd test && PYTHONPATH=. "../$<" --version
 
-test_2:
-	@echo "test_2: TODO: NOT YET IMPLEMENTED"
+test_2: runooni_2
+	@echo "test_2: TODO: capabilities tests"
+	cd test && PYTHONPATH=. "../$<" --version
 
 run_%: runooni_%
 	"./$<" -i /usr/share/ooni/decks/complete.deck
