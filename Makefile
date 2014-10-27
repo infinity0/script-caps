@@ -1,3 +1,39 @@
+# Wrappers for running ooniprobe as a non-root user.
+#
+# (1) `make test_1`
+#
+# This builds a program that has file capabilities set on it. The program calls
+# a python interpreter on the ooniprobe script. This child interpreter itself
+# also needs file capabilities granted, i.e. the ability to "inherit caps from
+# the wrapper". (That's just how Linux capabilities works, unfortunately). To
+# be clear, the child can only *use* those caps when called by the wrapper.
+#
+# Our current approach is to copy the system python interpreter and set caps
+# on the copy, rather than directly on the original. The path to the copy is
+# hard-coded in the wrapper, but the system administrator can in theory set a
+# different version of python to that path during runtime.
+#
+# Nothing runs as root; however we must maintain the child capabilities across
+# upgrades. It also needs to be kept in sync when the system interpreter is
+# auto-upgraded by the system package manager.
+#
+# (2) `make test_2`
+#
+# This builds a setuid program that gains capabilities and drops root. It then
+# uses libpythonXX.so to launch ooniprobe in its own process via python's
+# execfile(), avoiding execve(2) so that capabilities are retained. The version
+# of python is hard-coded into the wrapper at build time; making this dynamic
+# is possible, but much more complex and not yet implemented.
+#
+# This way, we avoid having to run setcap on a child interpreter. Another
+# advantage is that libpython would be automatically upgraded by the system
+# package manager. However, the program starts with root permissions so needs
+# to be reviewed carefully.
+#
+# In both (1) and (2), execution may be limited to a particular unix group by
+# setting o-x,g+x.
+#
+
 SCRIPT_CAP_NEEDED ?= cap_net_admin,cap_net_raw
 SCRIPT_CAP_INTERPRETER ?= "$(shell realpath ./python)"
 SCRIPT_CAP_SCRIPT ?= "/usr/bin/ooniprobe"
