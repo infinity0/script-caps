@@ -63,11 +63,11 @@ test_pre:
 	grep -q "os.getuid() != 0" "$$(python -c "import ooni.utils; print ooni.utils.__file__")" \
 	  && { echo "Ooni not patched: Tor bug #13497"; exit 1; } || true
 
-test_1: runooni_1
+test_1: runooni_1 python
 	@if ./python -c "$(SCRIPT_CAP_TEST)"; then \
-		echo "test failed! ./python is not supposed to be able to open raw sockets"; \
+		echo "test failed! ./python is not supposed to be able to directly exercise its capabilities"; \
 	else \
-		echo "test passed! ./python succesfully failed to open a raw socket"; \
+		echo "test passed! ./python succesfully failed to directly exercise its capabilities"; \
 	fi
 	cd test && PYTHONPATH=. "../$<" --version
 
@@ -77,7 +77,7 @@ test_2: runooni_2
 run_%: runooni_%
 	"./$<" -i /usr/share/ooni/decks/complete.deck
 
-runooni_1: runooni.c python Makefile
+runooni_1: runooni_1.c Makefile
 	$(CC) "$<" -Wall -std=c11 -l cap -o "$@" $(CFLAGS) \
 	  -DSCRIPT_CAP_NEEDED='$(SCRIPT_CAP_NEEDED_MACRO)' \
 	  -DSCRIPT_CAP_INTERPRETER='$(SCRIPT_CAP_INTERPRETER)' \
