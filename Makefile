@@ -15,23 +15,24 @@
 # hard-coded in the wrapper, but the system administrator can in theory set a
 # different version of python to that path during runtime.
 #
-# Nothing runs as root; however we must maintain the child capabilities across
-# upgrades. It also needs to be kept in sync when the system interpreter is
-# auto-upgraded by the system package manager.
+# A downside is that we must maintain the child capabilities across upgrades.
+# It also needs to be kept in sync when the system interpreter is auto-upgraded
+# by the system package manager.
 #
 # (2) `make test_2`
 #
 # Build-Depends: cython, python-dev
 #
-# This builds a program that has file capabilities set on it. It uses libpython
-# to launch ooniprobe in its own process via python's exec(), which avoids
-# execve(2) so that capabilities are retained. The version of python is
-# hard-coded into the wrapper at build time; making this dynamic is possible,
-# but much more complex and not yet implemented.
+# This builds a program that has file capabilities set on it. This is just
+# /usr/bin/ooniprobe compiled into a C program using Cython, so that one can
+# set capabilities directly on the resulting binary.
 #
 # This way, we avoid needing a child interpreter process with capabilities set.
 # Another advantage is that libpython would be automatically upgraded by the
 # system package manager.
+#
+# The version of python is hard-coded into the wrapper at build time; making
+# this dynamic is possible, but much more complex and not yet implemented.
 #
 # In both (1) and (2), execution may be limited to a particular unix group by
 # setting o-x,g+x.
@@ -94,19 +95,14 @@ runooni_2: runooni_2.c Makefile
 	$(CC) -L$(PYLIBPATH) -l$(PYLIB) -I$(PYINCPATH) "$<" -o "$@"
 	sudo setcap $(SCRIPT_CAP_NEEDED)+eip "$@"
 
-runooni_2.c: runooni_2.py Makefile
+runooni_2.c: $(shell which $(SCRIPT_CAP_SCRIPT)) Makefile
 	cython "$<" --embed=CYTHON_MAIN_SENTINEL -Werror -Wextra -o "$@"
 	sed -i \
 	  -e 's/\(.*CYTHON_MAIN_SENTINEL.*{\)/\1 $(CYTHON_PRE_MAIN)/g' \
 	  -e '/CYTHON_MAIN_SENTINEL[^{]*$$/,/{/s/{/{ $(CYTHON_PRE_MAIN)/g' \
 	  -e 's/CYTHON_MAIN_SENTINEL/main/g' "$@"
 
-runooni_2.py: Makefile
-	rm -f "$@" && touch "$@"
-	echo '$(SCRIPT_CAP_TEST)' >> "$@"
-	echo 'exec(open($(SCRIPT_CAP_SCRIPT)).read(), {})' >> "$@"
-
 clean:
-	rm -f python runooni_1 runooni_2 runooni_2.c runooni_2.py
+	rm -f python runooni_1 runooni_2 runooni_2.c
 
 .PHONY: clean all test test_% run_%
