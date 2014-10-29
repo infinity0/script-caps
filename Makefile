@@ -2,6 +2,8 @@
 #
 # (1) `make test_1`
 #
+# Build-Depends: libcap-dev
+#
 # This builds a program that has file capabilities set on it. The program calls
 # a python interpreter on the ooniprobe script. This child interpreter itself
 # also needs file capabilities granted, i.e. the ability to "inherit caps from
@@ -19,16 +21,17 @@
 #
 # (2) `make test_2`
 #
-# This builds a setuid program that gains capabilities and drops root. It then
-# uses libpythonXX.so to launch ooniprobe in its own process via python's
-# execfile(), avoiding execve(2) so that capabilities are retained. The version
-# of python is hard-coded into the wrapper at build time; making this dynamic
-# is possible, but much more complex and not yet implemented.
+# Build-Depends: cython, python-dev
 #
-# This way, we avoid having to run setcap on a child interpreter. Another
-# advantage is that libpython would be automatically upgraded by the system
-# package manager. However, the program starts with root permissions so needs
-# to be reviewed carefully.
+# This builds a program that has file capabilities set on it. It uses libpython
+# to launch ooniprobe in its own process via python's exec(), which avoids
+# execve(2) so that capabilities are retained. The version of python is
+# hard-coded into the wrapper at build time; making this dynamic is possible,
+# but much more complex and not yet implemented.
+#
+# This way, we avoid needing a child interpreter process with capabilities set.
+# Another advantage is that libpython would be automatically upgraded by the
+# system package manager.
 #
 # In both (1) and (2), execution may be limited to a particular unix group by
 # setting o-x,g+x.
@@ -46,7 +49,6 @@ PYLIBPATH := $(shell $(PYTHON) -c "from distutils import sysconfig; print(syscon
 PYLIB := $(shell $(PYTHON) -c "from distutils import sysconfig; print(sysconfig.get_config_var('LIBRARY')[3:-2])")
 
 SCRIPT_CAP_NEEDED_MACRO := $(shell echo "$(SCRIPT_CAP_NEEDED)" | tr '[a-z]' '[A-Z]')
-SCRIPT_CAP_NEEDED_PY := "$(subst cap_,,$(SCRIPT_CAP_NEEDED))"
 
 # Unfortunately cython --embed ignores the arguments in the shebang line
 # So we need to patch the generated code ourselves.
@@ -90,8 +92,7 @@ python: $(shell which $(PYTHON)) Makefile
 
 runooni_2: runooni_2.c Makefile
 	$(CC) -L$(PYLIBPATH) -l$(PYLIB) -I$(PYINCPATH) "$<" -o "$@"
-	sudo chown root:root "$@"
-	sudo chmod 4755 "$@"
+	sudo setcap $(SCRIPT_CAP_NEEDED)+eip "$@"
 
 runooni_2.c: runooni_2.py Makefile
 	cython "$<" --embed=CYTHON_MAIN_SENTINEL -Werror -Wextra -o "$@"
@@ -100,11 +101,10 @@ runooni_2.c: runooni_2.py Makefile
 	  -e '/CYTHON_MAIN_SENTINEL[^{]*$$/,/{/s/{/{ $(CYTHON_PRE_MAIN)/g' \
 	  -e 's/CYTHON_MAIN_SENTINEL/main/g' "$@"
 
-runooni_2.py: runooni_2.py.m4 Makefile
-	m4 < "$<" > "$@" \
-	  -DSCRIPT_CAP_NEEDED='$(SCRIPT_CAP_NEEDED_PY)' \
-	  -DSCRIPT_CAP_SCRIPT='$(SCRIPT_CAP_SCRIPT)' \
-	  -DSCRIPT_CAP_TEST='$(SCRIPT_CAP_TEST)'
+runooni_2.py: Makefile
+	rm -f "$@" && touch "$@"
+	echo '$(SCRIPT_CAP_TEST)' >> "$@"
+	echo 'exec(open($(SCRIPT_CAP_SCRIPT)).read(), {})' >> "$@"
 
 clean:
 	rm -f python runooni_1 runooni_2 runooni_2.c runooni_2.py
